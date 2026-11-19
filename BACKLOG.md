@@ -29,7 +29,6 @@ Claude Code stores every session as JSON Lines (`~/.claude/projects/<project>/<s
 - No regression fixture: the raw export for `coffe-break-with-questions.chat` is gone. Keep one raw `/export` text with its expected `.chat` to test importer changes.
 
 ### Project
-- Add the git remote.
 - Decide how to share the `/fancy-replay` skill: `.claude/` is git-ignored.
 - `package.json` says `1.0.0`; set the beta version.
 - Automated playback test: the fake-DOM smoke test lives only in a temp folder. Move it into the repo.
@@ -39,3 +38,4 @@ Claude Code stores every session as JSON Lines (`~/.claude/projects/<project>/<s
 - `/export` importer; fixed: prompts read as slash commands, `Answered Claude's questions`, diff lines in tool output, extra `⎿` blocks, `· summary` tags.
 - `/fancy-replay <export.txt>` skill (`.claude/skills/fancy-replay/`, local and git-ignored): runs `NEW-REPLAY.md` with one question round.
 - Raw exports live in the git-ignored `private-conversations/` folder.
+- Git remote: `https://github.com/SrDmitrov/ai-chat-presentation-template` (`main`).
