@@ -173,6 +173,8 @@ h1 { font: 700 15px/1.2 var(--mono); margin: 0; color: var(--t-fg); overflow: hi
 .user .g { color: var(--t-dim); }
 .out { display: grid; grid-template-columns: 3ch minmax(0, 1fr); color: var(--t-dim); margin-top: 1px; }
 .out .err { color: var(--t-err); }
+.out span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.out .add { color: var(--t-ok); } .out .del { color: var(--t-err); }
 .out span:nth-child(odd) { user-select: none; }
 .say .p, .say .h { white-space: pre-wrap; }
 .say .h { font-weight: 700; }

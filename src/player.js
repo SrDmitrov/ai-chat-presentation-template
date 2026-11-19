@@ -168,7 +168,7 @@
       const o = div('out');
       c.appendChild(o);
       for (let i = 0; i < e.body.length; i++) {
-        o.append(span('', i === 0 ? '⎿' : ''), span(i === 0 && err ? 'err' : '', e.body[i]));
+        o.append(span('', i === 0 ? '⎿' : ''), span(i === 0 && err ? 'err' : /^\s*\d+ \+/.test(e.body[i]) ? 'add' : /^\s*\d+ -/.test(e.body[i]) ? 'del' : '', e.body[i]));
         stick();
         await wait(45, id);
       }
@@ -176,9 +176,10 @@
     async say(e, id) {
       await wait(700, id);
       const c = row('⏺', '', 'say');
-      let pre = null;
+      let pre = null, fence = false;
       for (const line of e.body) {
-        if (/^[┌│├└]/.test(line)) { // box-drawing table: shown verbatim
+        if (line === '```') { fence = !fence; pre = null; continue; } // fenced block: shown verbatim
+        if (fence || /^[┌│├└]/.test(line)) { // box-drawing table or fenced block: shown verbatim
           if (!pre) { const w = div('tblwrap'); pre = document.createElement('pre'); w.appendChild(pre); c.appendChild(w); }
           pre.textContent += (pre.textContent ? '\n' : '') + line;
           stick();

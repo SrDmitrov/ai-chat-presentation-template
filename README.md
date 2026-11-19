@@ -7,8 +7,8 @@ No dependencies. Needs Node 18 or newer.
 ## Quick start
 
 ```sh
-node build.mjs                                  # builds every conversations/*.chat
-node build.mjs conversations/my-talk.chat       # builds one
+node build.mjs                                                  # builds every example-conversations/*.chat and private-conversations/*.chat
+node build.mjs private-conversations/my-talk.chat               # builds one
 ```
 
 Each conversation produces two files in `dist/`:
@@ -20,7 +20,7 @@ Each conversation produces two files in `dist/`:
 
 ## Writing a conversation
 
-A `.chat` file is plain text: page settings first, then the conversation. See `conversations/hello-world.chat` for a minimal example to copy.
+A `.chat` file is plain text: page settings first, then the conversation. See `example-conversations/hello-world.chat` for a minimal example to copy.
 
 ```
 title: My Talk
@@ -52,8 +52,8 @@ All five settings are optional. Lines starting with `#` before the first directi
 | `@banner` + lines | Start-up banner. Leading block characters are drawn as the logo. |
 | `@user text` | A prompt, typed into the input box and then sent. |
 | `@slash /cmd` + optional line | A slash command and its one-line result. |
-| `@say` + lines | The assistant's reply, streamed. One paragraph per line; blank lines separate paragraphs. Supports `- ` bullets, `  - ` nested bullets, `1. ` items, `## ` headings, `` `code` ``, `**bold**` and box-drawing tables (shown as-is). |
-| `@tool Name(args)` + lines | A tool call and its output. `@tool!` marks it as failed (red). |
+| `@say` + lines | The assistant's reply, streamed. One paragraph per line; blank lines separate paragraphs. Supports `- ` bullets, `  - ` nested bullets, `1. ` items, `## ` headings, `` `code` ``, `**bold**`, box-drawing tables (shown as-is) and a ``` fenced block (shown verbatim, e.g. diagrams). |
+| `@tool Name(args)` + lines | A tool call and its output. `@tool!` marks it as failed (red). Numbered diff lines (`12 +…`, `12 -…`) are shown green/red. |
 | `@ask` + lines | Answered questions (AskUserQuestion), one `Question → Answer` per line (`->` also works). A card asks each one and marks the answer, then folds into `User answered Claude's questions:`. |
 | `@note text` | A dimmed system notice with a `⏺` marker. |
 | `@dim text` | A dimmed line, such as `Wrote 2 memories (ctrl+o to expand)`. |
@@ -68,10 +68,10 @@ To start a line inside `@say` or tool output with a literal `@`, write `\@`.
 
 ## Importing a Claude Code session
 
-In Claude Code, run `/export my-talk`, then:
+In Claude Code, run `/export my-talk`, move `my-talk.txt` into `private-conversations/` (git-ignored; the importer refuses files outside it), then:
 
 ```sh
-node import-claude-code.mjs my-talk.txt > conversations/my-talk.chat
+node import-claude-code.mjs private-conversations/my-talk.txt > private-conversations/my-talk.chat
 ```
 
 The importer rejoins lines that the terminal wrapped and recognizes prompts, tool calls, replies, answered questions and "done" lines. The export is plain text, so some things are lost and need a manual pass:
@@ -79,8 +79,11 @@ The importer rejoins lines that the terminal wrapped and recognizes prompts, too
 - Fill in the settings at the top.
 - Inline code and bold are gone. Add backticks and `**` where you want them back.
 - Headings come through as plain or numbered lines. Prefix them with `## `.
+- Diagrams are flattened. Wrap them in ``` lines by hand so they show verbatim.
 - Hook and system notices come through as `@say`. Change them to `@note`.
 - Replace anything private (home directory, project names, hostnames) before you publish.
+
+The full procedure, from export to published artifact, is in `NEW-REPLAY.md`. In Claude Code, `/fancy-replay <export.txt>` runs it.
 
 ## Deploying
 
@@ -103,6 +106,7 @@ import-claude-code.mjs  Claude Code /export → .chat draft
 src/page.html           page markup with {{PLACEHOLDERS}}
 src/player.css          styles and theme tokens
 src/player.js           the player
-conversations/          one .chat file per replay
+example-conversations/  the three committed example replays
+private-conversations/  raw exports and your own replays (git-ignored)
 dist/                   build output (git-ignored)
 ```

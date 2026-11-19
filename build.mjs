@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Builds each conversations/*.chat into two self-contained pages in dist/:
+// Builds each example-conversations/*.chat and private-conversations/*.chat into two self-contained pages in dist/:
 //   <name>.html           full document, for any static web host
 //   <name>.artifact.html  fragment without doctype/head/body, for a Claude artifact
-// Usage: node build.mjs [file.chat ...]   (no arguments: every file in conversations/)
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+// Usage: node build.mjs [file.chat ...]   (no arguments: every file in both folders)
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -82,8 +82,10 @@ function build(file) {
 
 const files = process.argv.slice(2);
 if (!files.length) {
-  const dir = join(ROOT, 'conversations');
-  files.push(...readdirSync(dir).filter((f) => f.endsWith('.chat')).map((f) => join(dir, f)));
+  for (const d of ['example-conversations', 'private-conversations']) {
+    const dir = join(ROOT, d);
+    if (existsSync(dir)) files.push(...readdirSync(dir).filter((f) => f.endsWith('.chat')).map((f) => join(dir, f)));
+  }
 }
 try {
   files.forEach(build);

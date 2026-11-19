@@ -1,17 +1,25 @@
 #!/usr/bin/env node
 // Converts a Claude Code `/export` transcript into a .chat draft on stdout.
 // Best effort: the export is plain text wrapped at the terminal width, so review the draft before building.
-// Usage: node import-claude-code.mjs <export.txt> > conversations/<name>.chat
+// Usage: node import-claude-code.mjs private-conversations/<export.txt> > private-conversations/<name>.chat
+// Exports hold private data, so the input must be in the git-ignored private-conversations/ folder.
 import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, dirname, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const file = process.argv[2];
 if (!file) {
-  console.error('usage: node import-claude-code.mjs <export.txt> > conversations/<name>.chat');
+  console.error('usage: node import-claude-code.mjs private-conversations/<export.txt> > private-conversations/<name>.chat');
+  process.exit(1);
+}
+const PRIVATE = resolve(dirname(fileURLToPath(import.meta.url)), 'private-conversations') + sep;
+if (!resolve(file).startsWith(PRIVATE)) {
+  console.error('exports hold private data: move the file into private-conversations/ first');
   process.exit(1);
 }
 const lines = readFileSync(file, 'utf8').replace(/\r/g, '').split('\n');
-const width = Math.max(...lines.map((l) => l.length)); // prompts are padded to the terminal width
+const prompts = lines.filter((l) => /^[❯>] /.test(l));
+const width = Math.max(...(prompts.length ? prompts : lines).map((l) => l.length)); // prompts are padded to the terminal width
 
 const blank = (l) => l === undefined || !l.trim();
 const isOut = (l) => l !== undefined && /^\s*⎿/.test(l);
@@ -38,13 +46,23 @@ function unwrap(text, indent) {
   return text;
 }
 
-// "  ⎿  first" plus lines indented by 5; wrapped lines are rejoined, real line breaks kept
+// "  ⎿  first" plus lines indented by 5; wrapped lines are rejoined, real line breaks kept.
+// Numbered diff/Write lines ("      36 -- text") stay whole. Their wraps start past the number column
+// (ncol), drop the repeated +/- marker, and are hard-cut at width - 7, so a full line continues mid-word.
 function output() {
-  let raw = lines[i];
+  let raw = lines[i], mark, ncol;
   const res = [lines[i++].replace(/^\s*⎿\s*/, '').trimEnd()];
-  while (i < lines.length && /^ {5}\S/.test(lines[i])) {
-    const t = lines[i].trim(), last = res.length - 1;
-    if (/\s$/.test(raw)) res[last] += ' ' + t;
+  while (i < lines.length && !blank(lines[i]) && /^ {5}/.test(lines[i])) {
+    const l = lines[i], t = l.trim(), last = res.length - 1, indent = l.length - l.trimStart().length;
+    const num = l.match(/^ {5} *\d+(?= |$)/);
+    if (num && num[0].length <= (ncol ?? 9)) {
+      ncol = num[0].length;
+      mark = l[ncol + 1] ?? ' '; // +/- marker of a diff line
+      res.push(l.slice(5).trimEnd());
+    } else if (ncol !== undefined && indent > ncol) {
+      const text = indent === ncol + 1 && t[0] === mark && '+-'.includes(mark) ? t.slice(1) : t;
+      res[last] += (raw.trimEnd().length >= width - 7 ? '' : ' ') + text;
+    } else if (/\s$/.test(raw)) res[last] += ' ' + t;
     else if (isCut(res[last], raw, t, 5)) res[last] += t;
     else res.push(t);
     raw = lines[i++];
@@ -70,6 +88,7 @@ function say(first) {
   }
   flush();
   while (res.length && !res[res.length - 1]) res.pop();
+  if (res.length) res[res.length - 1] = res[res.length - 1].replace(/\s+·\s+summary$/, '');
   return res;
 }
 
@@ -79,21 +98,25 @@ while (i < lines.length) {
   if (!out.length && /[▀-▟]/.test(l)) {
     out.push('@banner');
     while (!blank(lines[i])) out.push(lines[i++].trimEnd());
-  } else if (/User answered Claude's questions:\s*$/.test(l) && isOut(lines[i + 1])) {
+  } else if (/(?:User a|A)nswered Claude's questions:\s*$/.test(l.replace(/^[⏺●] /, '')) && isOut(lines[i + 1])) {
     i++;
     out.push('@ask');
     output().forEach((qa) => body(qa.replace(/^· /, ''))); // "· Question → Answer"
   } else if (/^[❯>] /.test(l)) {
     i++;
     const text = unwrap(l.slice(2).trim(), 2);
-    if (isOut(lines[i])) { out.push('@slash ' + text); output().forEach(body); }
-    else out.push('@user ' + text);
+    if (/^\//.test(text) && isOut(lines[i])) { out.push('@slash ' + text); output().forEach(body); }
+    else {
+      out.push('@user ' + text);
+      while (isOut(lines[i])) output().forEach((d) => out.push('@dim ' + d));
+    }
   } else if (/^[⏺●] /.test(l)) {
     i++;
     const rest = l.slice(2).trimEnd();
     if (/^[A-Za-z_][\w.:-]*\(/.test(rest)) {
       const call = unwrap(rest, 6);
-      const res = isOut(lines[i]) ? output() : [];
+      const res = [];
+      while (isOut(lines[i])) res.push(...output()); // a tool can have several ⎿ blocks
       out.push((/^Error\b/.test(res[0] ?? '') ? '@tool! ' : '@tool ') + call);
       res.forEach(body);
     } else {
@@ -103,8 +126,10 @@ while (i < lines.length) {
   } else if (/^[✻✽✶✳✢·*] \S+ for \d/.test(l)) {
     out.push('@done ' + l.slice(2).trim());
     i++;
+  } else if (isOut(l)) {
+    output().forEach((d) => out.push('@dim ' + d));
   } else {
-    out.push('@dim ' + l.trim().replace(/^⎿\s*/, ''));
+    out.push('@dim ' + l.trim());
     i++;
   }
 }
